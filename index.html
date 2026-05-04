@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <title>FINAL SENTENCE - JS Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
+
+        body {
+            background-color: #050505;
+            background-image: radial-gradient(circle, #1a0505 0%, #050505 100%);
+            color: #d1d1d1;
+            font-family: 'Special Elite', serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            border: 1px solid #441111;
+            background: rgba(10, 0, 0, 0.9);
+            padding: 40px;
+            box-shadow: 0 0 50px rgba(255, 0, 0, 0.2);
+            text-align: center;
+            width: 85%;
+            max-width: 800px;
+        }
+
+        h1 { color: #ff0000; letter-spacing: 5px; margin-bottom: 20px; }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            font-size: 1.2rem;
+            border-bottom: 2px solid #331111;
+            padding-bottom: 15px;
+        }
+
+        #sentence-display {
+            font-size: 1.4rem;
+            margin: 30px 0;
+            min-height: 100px;
+            color: #555;
+            line-height: 1.6;
+            text-align: left;
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 5px;
+        }
+
+        .char-correct { color: #fff; text-shadow: 0 0 8px #fff; }
+        .char-current { background: #440000; color: #ff0000; }
+
+        #input-box { position: absolute; opacity: 0; pointer-events: none; }
+        .lives { color: #ff0000; font-size: 1.8rem; }
+        
+        .damage-flash {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 0, 0, 0.3);
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+        }
+
+        #restart-btn {
+            display: none;
+            margin-top: 25px;
+            padding: 15px 40px;
+            background: #600;
+            color: white;
+            border: 1px solid #f00;
+            cursor: pointer;
+            font-family: inherit;
+        }
+    </style>
+</head>
+<body onclick="document.getElementById('input-box').focus()">
+
+    <div class="damage-flash" id="flash"></div>
+
+    <div id="game-container">
+        <h1>JS: FINAL SENTENCE</h1>
+        
+        <div class="stats">
+            <div>TIME: <span id="time">240</span>s</div>
+            <div class="lives" id="lives">❤❤❤</div>
+            <div>PROGRESS: <span id="level">0</span>/10</div>
+        </div>
+
+        <div id="sentence-display">Эхлэхийн тулд дурын товч дарна уу...</div>
+        
+        <input type="text" id="input-box" autocomplete="off">
+        
+        <div id="message" style="margin-top: 20px; font-size: 1.2rem; color: #ff0000;"></div>
+        <button id="restart-btn" onclick="location.reload()">ДАХИН ОРОЛДОХ</button>
+    </div>
+
+<script>
+    const sentences = [
+        "push() функц нь массивын төгсгөлд шинэ элемент нэмдэг.",
+        "pop() функц нь массивын төгсгөлөөс нэг элемент устгадаг.",
+        "unshift() функц нь массивын эхэнд шинэ элемент нэмдэг.",
+        "shift() функц нь массивын эхнээс нэг элемент устгадаг.",
+        "for...of давталтыг массивын утгуудыг авахад ашигладаг.",
+        "for...in давталтыг объектын түлхүүрүүдийг авахад ашигладаг.",
+        "JavaScript массив нь олон төрлийн өгөгдөл хадгалах боломжтой.",
+        "Array.length шинж чанар нь массивын уртыг буцаадаг.",
+        "push болон pop нь массивын төгсгөлтэй ажиллах хамгийн хурдан арга.",
+        "Чи JavaScript-ийн үндсэн функцүүдийг сурч дууслаа. Баяр хүргэе!"
+    ];
+
+    let currentLevel = 0;
+    let mistakes = 0;
+    let timeLeft = 240;
+    let isPlaying = false;
+    let currentText = "";
+    let charIndex = 0;
+    let timerInterval;
+
+    const sentenceDisplay = document.getElementById('sentence-display');
+    const inputBox = document.getElementById('input-box');
+    const timeDisplay = document.getElementById('time');
+    const levelDisplay = document.getElementById('level');
+    const livesDisplay = document.getElementById('lives');
+    const flash = document.getElementById('flash');
+    const restartBtn = document.getElementById('restart-btn');
+    const message = document.getElementById('message');
+
+    function updateDisplay() {
+        let html = "";
+        for(let i=0; i < currentText.length; i++) {
+            if(i < charIndex) {
+                html += `<span class="char-correct">${currentText[i]}</span>`;
+            } else if(i === charIndex) {
+                html += `<span class="char-current">${currentText[i]}</span>`;
+            } else {
+                html += `<span>${currentText[i]}</span>`;
+            }
+        }
+        sentenceDisplay.innerHTML = html;
+    }
+
+    function startLevel() {
+        if(currentLevel >= sentences.length) {
+            endGame("ТА ШАЛГАЛТАНД ТЭНЦЛЭЭ!", true);
+            return;
+        }
+        currentText = sentences[currentLevel];
+        charIndex = 0;
+        updateDisplay();
+    }
+
+    function triggerFlash() {
+        flash.style.display = 'block';
+        setTimeout(() => { flash.style.display = 'none'; }, 100);
+    }
+
+    function endGame(text, won) {
+        isPlaying = false;
+        clearInterval(timerInterval);
+        sentenceDisplay.innerText = text;
+        sentenceDisplay.style.color = won ? "#0f0" : "#f00";
+        message.innerText = won ? "JS МАСТЕР БОЛЛОО" : "ДУТУУ СУРЛАА";
+        restartBtn.style.display = "inline-block";
+        inputBox.disabled = true;
+    }
+
+    inputBox.addEventListener('input', (e) => {
+        if (!isPlaying && currentLevel === 0) {
+            isPlaying = true;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timeDisplay.innerText = timeLeft;
+                if (timeLeft <= 0) endGame("ЦАГ ДУУСЛАА", false);
+            }, 1000);
+            startLevel();
+            return;
+        }
+
+        const insertedChar = e.target.value.slice(-1);
+        const expectedChar = currentText[charIndex];
+
+        if (insertedChar === expectedChar) {
+            charIndex++;
+            if (charIndex >= currentText.length) {
+                currentLevel++;
+                levelDisplay.innerText = currentLevel;
+                startLevel();
+            } else {
+                updateDisplay();
+            }
+        } else {
+            mistakes++;
+            triggerFlash();
+            let hearts = "❤❤❤".substring(0, 3 - mistakes);
+            livesDisplay.innerText = hearts || "GAME OVER";
+            if (mistakes >= 3) endGame("БУРУУ БИЧЛЭЭ", false);
+        }
+        e.target.value = "";
+    });
+
+    window.onload = () => inputBox.focus();
+</script>
+</body>
+</html>
